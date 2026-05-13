@@ -40,6 +40,8 @@
         .btn-success:hover { background-color: #218838; }
         .btn-danger { background-color: var(--alert-color); }
         .btn-danger:hover { background-color: #c82333; }
+        .btn-secondary { background-color: #6c757d; }
+        .btn-secondary:hover { background-color: #5a6268; }
         .btn-sm { padding: 5px 10px; font-size: 0.85rem; }
 
         .dashboard { display: flex; gap: 20px; max-width: 1200px; width: 100%; flex-wrap: wrap; }
@@ -57,15 +59,16 @@
         .day.active { background-color: var(--primary-color); color: white; border-color: var(--primary-color); }
         .day.active.other-month { background-color: #6c757d; border-color: #6c757d; }
 
-        .route-details { flex: 1; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); min-width: 300px; display: flex; flex-direction: column; }
-        .route-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--bg-color); padding-bottom: 10px; margin-bottom: 15px; }
+        .route-details { flex: 1; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); min-width: 350px; display: flex; flex-direction: column; }
+        .route-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--bg-color); padding-bottom: 10px; margin-bottom: 15px; flex-wrap: wrap; gap: 10px; }
         .route-header h3 { margin: 0; }
+        .route-header-actions { display: flex; gap: 10px; align-items: center; }
         .route-content { flex-grow: 1; overflow-y: auto; max-height: 500px; padding-right: 5px; }
         
         .patient-card { background: var(--bg-color); border-left: 4px solid var(--primary-color); padding: 10px 15px; margin-bottom: 15px; border-radius: 4px; position: relative; }
         .patient-card.item-especifico { border-left: 5px solid var(--alert-color); background-color: #fff3f3; }
         
-        .route-card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 8px; }
+        .route-card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 5px; }
         .route-card-top h4 { margin: 0; color: inherit; flex-grow: 1; word-break: break-word; }
         .patient-card.item-especifico h4 { color: var(--alert-color); }
         
@@ -74,7 +77,7 @@
         .btn-edit { color: var(--primary-color); }
         .btn-delete { color: var(--alert-color); }
 
-        .patient-card p { margin: 2px 0; font-size: 0.9rem; color: #555; }
+        .extra-details p { margin: 4px 0; font-size: 0.9rem; color: #555; }
         
         .card-footer-tags { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 10px; }
         .badge-esterelizavel { display: inline-block; background-color: var(--warning-color); color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.85rem; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
@@ -150,7 +153,10 @@
         <div class="route-details">
             <div class="route-header">
                 <h3 id="selectedDateText">Selecione uma data</h3>
-                <button class="btn" id="btnAddRoute" style="display: none;" onclick="openRouteModal()">+ Rota</button>
+                <div class="route-header-actions">
+                    <button class="btn btn-secondary btn-sm" id="btnToggleView" style="display: none;" onclick="toggleViewMode()">Ver Detalhes</button>
+                    <button class="btn" id="btnAddRoute" style="display: none;" onclick="openRouteModal()">+ Rota</button>
+                </div>
             </div>
             <div id="routeContent" class="route-content">
                 <p class="no-routes">Clique em um dia no calendário para ver ou adicionar rotas.</p>
@@ -293,7 +299,6 @@
         const monthNames = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
         let currentDate = new Date(); 
         
-        // AUTO-SELECIONAR O DIA DE HOJE
         const todayYear = currentDate.getFullYear();
         const todayMonth = String(currentDate.getMonth() + 1).padStart(2, '0');
         const todayDay = String(currentDate.getDate()).padStart(2, '0');
@@ -304,11 +309,15 @@
         let editingPatientId = null;
         let editingRouteId = null; 
 
+        // Controle da Visualização Simplificada
+        let isSimplifiedMode = true; 
+
         const monthYearText = document.getElementById('monthYear');
         const calendarDays = document.getElementById('calendarDays');
         const selectedDateText = document.getElementById('selectedDateText');
         const routeContent = document.getElementById('routeContent');
         const btnAddRoute = document.getElementById('btnAddRoute');
+        const btnToggleView = document.getElementById('btnToggleView');
 
         async function initData() {
             try {
@@ -411,9 +420,19 @@
             calendarDays.appendChild(dayDiv);
         }
 
+        function toggleViewMode() {
+            isSimplifiedMode = !isSimplifiedMode;
+            showRoutes();
+        }
+
         function showRoutes() {
             selectedDateText.textContent = `Rota para ${selectedDayInfo}`;
+            
+            // Exibir os botões do cabeçalho
             btnAddRoute.style.display = 'block'; 
+            btnToggleView.style.display = 'block';
+            btnToggleView.textContent = isSimplifiedMode ? 'Ver Detalhes' : 'Simplificar';
+
             routeContent.innerHTML = '';
 
             const dailyRoutes = routesData[selectedDateString] || [];
@@ -428,12 +447,30 @@
                     const card = document.createElement('div');
                     card.classList.add('patient-card');
                     
-                    let detalhesItemEspecifico = '';
                     if (patient.itemEspecifico) {
                         card.classList.add('item-especifico');
-                        detalhesItemEspecifico = `<p><strong>Itens Específicos:</strong> <span style="color: var(--alert-color); font-weight: bold;">${patient.descricaoItem || 'Não especificado'}</span></p>`;
                     }
 
+                    // Seções Extras (que serão escondidas no modo simples)
+                    let extraDetailsHtml = '';
+                    if (!isSimplifiedMode) {
+                        let detalhesItemEspecifico = '';
+                        if (patient.itemEspecifico) {
+                            detalhesItemEspecifico = `<p><strong>Itens Específicos:</strong> <span style="color: var(--alert-color); font-weight: bold;">${patient.descricaoItem || 'Não especificado'}</span></p>`;
+                        }
+
+                        extraDetailsHtml = `
+                            <div class="extra-details">
+                                <p><strong>Horário:</strong> ${route.horario}</p>
+                                <p><strong>Endereço:</strong> ${patient.endereco}</p>
+                                <p><strong>Telefone:</strong> ${patient.telefone}</p>
+                                <p><strong>Observações:</strong> ${route.observacoes || 'Nenhuma'}</p>
+                                ${detalhesItemEspecifico}
+                            </div>
+                        `;
+                    }
+
+                    // Elementos que sempre aparecem (Tags, Separado)
                     let badgeHtml = '';
                     if (route.enviarEsterelizaveis) {
                         badgeHtml = `<div class="badge-esterelizavel">🧼 Enviar Esterelizáveis</div>`;
@@ -445,19 +482,18 @@
                         </button>
                     `;
 
+                    // Renderização Final do Card
                     card.innerHTML = `
                         <div class="route-card-top">
-                            <h4>Pac: ${patient.nome} ${patient.itemEspecifico ? '⚠️' : ''}</h4>
+                            <h4>Pac: ${patient.nome} ${patient.itemEspecifico ? '<span title="Item Específico">⚠️</span>' : ''}</h4>
                             <div class="route-card-actions">
                                 <button class="btn-action btn-edit" onclick="editRoute(${route.id}, '${selectedDateString}')" title="Editar Rota">✏️ Editar</button>
                                 <button class="btn-action btn-delete" onclick="deleteRoute(${route.id}, '${selectedDateString}')" title="Remover da Rota">X</button>
                             </div>
                         </div>
-                        <p><strong>Horário:</strong> ${route.horario}</p>
-                        <p><strong>Endereço:</strong> ${patient.endereco}</p>
-                        <p><strong>Telefone:</strong> ${patient.telefone}</p>
-                        <p><strong>Observações:</strong> ${route.observacoes || 'Nenhuma'}</p>
-                        ${detalhesItemEspecifico}
+                        
+                        ${extraDetailsHtml}
+                        
                         <div class="card-footer-tags">
                             ${badgeHtml}
                             ${btnSeparadoHtml}
