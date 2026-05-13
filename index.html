@@ -60,13 +60,32 @@
         .route-details { flex: 1; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); min-width: 300px; display: flex; flex-direction: column; }
         .route-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--bg-color); padding-bottom: 10px; margin-bottom: 15px; }
         .route-header h3 { margin: 0; }
-        .route-content { flex-grow: 1; overflow-y: auto; max-height: 500px; }
+        .route-content { flex-grow: 1; overflow-y: auto; max-height: 500px; padding-right: 5px; }
+        
+        /* Ajustes do Cartão do Paciente */
         .patient-card { background: var(--bg-color); border-left: 4px solid var(--primary-color); padding: 10px 15px; margin-bottom: 15px; border-radius: 4px; position: relative; }
         .patient-card.item-especifico { border-left: 5px solid var(--alert-color); background-color: #fff3f3; }
+        
+        .route-card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 8px; }
+        .route-card-top h4 { margin: 0; color: inherit; flex-grow: 1; word-break: break-word; }
         .patient-card.item-especifico h4 { color: var(--alert-color); }
-        .patient-card h4 { margin: 0 0 5px 0; }
+        
+        .route-card-actions { display: flex; gap: 10px; flex-shrink: 0; align-items: center; }
+        .btn-action { background: none; border: none; cursor: pointer; font-weight: bold; padding: 0; display: flex; align-items: center; gap: 4px; font-size: 0.9rem; }
+        .btn-edit { color: var(--primary-color); }
+        .btn-delete { color: var(--alert-color); }
+
         .patient-card p { margin: 2px 0; font-size: 0.9rem; color: #555; }
-        .badge-esterelizavel { display: inline-block; background-color: var(--warning-color); color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.85rem; font-weight: bold; margin-top: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        
+        /* Badges e Botão Separado */
+        .card-footer-tags { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 10px; }
+        .badge-esterelizavel { display: inline-block; background-color: var(--warning-color); color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.85rem; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        
+        .btn-separado { padding: 4px 10px; border-radius: 4px; border: 1px solid #aaa; background-color: #fff; cursor: pointer; font-weight: bold; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 5px; transition: all 0.2s; color: #555; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .btn-separado:hover { background-color: #f0f0f0; }
+        .btn-separado.ativo { background-color: #d4edda; border-color: #28a745; color: #155724; }
+        .btn-separado.ativo:hover { background-color: #c3e6cb; }
+
         .no-routes { color: #777; text-align: center; font-style: italic; margin-top: 20px; }
 
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000; }
@@ -180,7 +199,6 @@
                 <input type="text" id="patTelefone" placeholder="Ex: (98) 99999-9999">
             </div>
             
-            <!-- Campo de Grupo da Rota atualizado com a Lista Fixa -->
             <div class="form-group">
                 <label>Grupo da Rota</label>
                 <select id="patGrupo">
@@ -230,7 +248,6 @@
                 <div id="routeDropdownOptions" class="searchable-dropdown"></div>
             </div>
 
-            <!-- Seleção de Grupo com a Lista Fixa -->
             <div class="form-group" id="divSearchGroup" style="display: none;">
                 <label>Selecionar Grupo de Pacientes</label>
                 <select id="routeSelectGroup">
@@ -314,7 +331,8 @@
                         patientId: r.paciente_id,
                         horario: r.horario.substring(0, 5), 
                         observacoes: r.observacoes,
-                        enviarEsterelizaveis: r.enviar_esterelizaveis
+                        enviarEsterelizaveis: r.enviar_esterelizaveis,
+                        separado: r.separado // Trazendo status do banco
                     });
                 });
 
@@ -325,7 +343,7 @@
 
             } catch (error) {
                 console.error("Erro ao buscar dados do Supabase:", error);
-                alert("Erro de conexão. Confirme se a coluna 'grupo' foi criada no banco de dados.");
+                alert("Erro de conexão. Confirme se a coluna 'separado' foi criada no banco de dados.");
                 document.getElementById('loadingOverlay').innerHTML = "Falha ao conectar com Supabase.";
             }
         }
@@ -416,12 +434,19 @@
                         badgeHtml = `<div class="badge-esterelizavel">🧼 Enviar Esterelizáveis</div>`;
                     }
 
+                    // Botão Separado dinâmico
+                    let btnSeparadoHtml = `
+                        <button class="btn-separado ${route.separado ? 'ativo' : ''}" onclick="toggleSeparado(${route.id}, ${!route.separado}, '${selectedDateString}')">
+                            ${route.separado ? '✅ Separado' : '📦 Separar'}
+                        </button>
+                    `;
+
                     card.innerHTML = `
-                        <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                        <div class="route-card-top">
                             <h4>Pac: ${patient.nome} ${patient.itemEspecifico ? '⚠️' : ''}</h4>
-                            <div>
-                                <button onclick="editRoute(${route.id}, '${selectedDateString}')" style="background:none; border:none; color:var(--primary-color); cursor:pointer; font-weight:bold; margin-right: 10px;" title="Editar Rota">✏️ Editar</button>
-                                <button onclick="deleteRoute(${route.id}, '${selectedDateString}')" style="background:none; border:none; color:#dc3545; cursor:pointer; font-weight:bold;" title="Remover da Rota">X</button>
+                            <div class="route-card-actions">
+                                <button class="btn-action btn-edit" onclick="editRoute(${route.id}, '${selectedDateString}')" title="Editar Rota">✏️ Editar</button>
+                                <button class="btn-action btn-delete" onclick="deleteRoute(${route.id}, '${selectedDateString}')" title="Remover da Rota">X</button>
                             </div>
                         </div>
                         <p><strong>Horário:</strong> ${route.horario}</p>
@@ -429,12 +454,34 @@
                         <p><strong>Telefone:</strong> ${patient.telefone}</p>
                         <p><strong>Observações:</strong> ${route.observacoes || 'Nenhuma'}</p>
                         ${detalhesItemEspecifico}
-                        ${badgeHtml}
+                        <div class="card-footer-tags">
+                            ${badgeHtml}
+                            ${btnSeparadoHtml}
+                        </div>
                     `;
                     routeContent.appendChild(card);
                 });
             } else {
                 routeContent.innerHTML = '<p class="no-routes">Nenhum paciente agendado para este dia.</p>';
+            }
+        }
+
+        async function toggleSeparado(routeId, novoStatus, dateString) {
+            try {
+                // Atualiza visualmente na hora (Optimistic Update)
+                const routeIndex = routesData[dateString].findIndex(r => r.id === routeId);
+                if (routeIndex > -1) {
+                    routesData[dateString][routeIndex].separado = novoStatus;
+                    showRoutes(); 
+                }
+
+                // Envia para o banco
+                const { error } = await client.from('rotas').update({ separado: novoStatus }).eq('id', routeId);
+                if (error) throw error;
+                
+            } catch(e) {
+                alert("Erro ao atualizar status: " + e.message);
+                initData(); // Restaura em caso de erro
             }
         }
 
@@ -607,7 +654,8 @@
                         data_rota: selectedDateString,
                         horario: horario, 
                         observacoes: observacoes,
-                        enviar_esterelizaveis: enviar_esterelizaveis
+                        enviar_esterelizaveis: enviar_esterelizaveis,
+                        separado: false // Inicia como não separado
                     }));
 
                     const { error } = await client.from('rotas').insert(payloads);
@@ -623,7 +671,8 @@
                         data_rota: selectedDateString,
                         horario: horario,
                         observacoes: observacoes,
-                        enviar_esterelizaveis: enviar_esterelizaveis
+                        enviar_esterelizaveis: enviar_esterelizaveis,
+                        separado: false
                     };
                     const { error } = await client.from('rotas').insert([payload]);
                     if(error) throw error;
