@@ -14,6 +14,7 @@
             --alert-color: #dc3545;
             --warning-color: #ff9800;
             --info-color: #17a2b8;
+            --frasco-color: #8e44ad;
             --other-month-color: #aaa;
         }
 
@@ -67,6 +68,7 @@
         .route-header-actions { display: flex; gap: 10px; align-items: center; }
         .route-content { flex-grow: 1; overflow-y: auto; max-height: 600px; padding-right: 5px; }
         
+        /* AJUSTES DE COMPACTAÇÃO DOS CARTÕES */
         .patient-card { background: var(--bg-color); border-left: 4px solid var(--primary-color); padding: 8px 12px; margin-bottom: 8px; border-radius: 4px; position: relative; }
         .patient-card.item-especifico { border-left: 5px solid var(--alert-color); background-color: #fff3f3; }
         
@@ -84,6 +86,7 @@
         .card-footer-tags { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 4px; }
         .badge-esterelizavel { display: inline-block; background-color: var(--warning-color); color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
         .badge-equipos { display: inline-block; background-color: var(--info-color); color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+        .badge-frasco { display: inline-block; background-color: var(--frasco-color); color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
         
         .btn-separado { padding: 2px 8px; border-radius: 4px; border: 1px solid #aaa; background-color: #fff; cursor: pointer; font-weight: bold; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 4px; transition: all 0.2s; color: #555; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
         .btn-separado:hover { background-color: #f0f0f0; }
@@ -171,6 +174,12 @@
     <div id="modalListPatients" class="modal">
         <div class="modal-content large">
             <h3>Pacientes Cadastrados</h3>
+            
+            <!-- Nova Barra de Pesquisa de Pacientes -->
+            <div style="margin-top: 10px; margin-bottom: 15px;">
+                <input type="text" id="searchPatientListInput" placeholder="🔍 Buscar paciente por nome..." oninput="filterPatientsList()" style="width: 100%; padding: 8px; border: 1px solid var(--border-color); border-radius: 4px; box-sizing: border-box;">
+            </div>
+
             <div class="table-container">
                 <table>
                     <thead>
@@ -290,6 +299,12 @@
                 <label for="routeEquiposBic" style="color: var(--info-color); font-weight: bold; margin: 0;">Enviar equipos BIC enteral</label>
             </div>
 
+            <!-- Nova opção Frasco Cruz -->
+            <div class="form-group checkbox-group">
+                <input type="checkbox" id="routeFrascoCruz">
+                <label for="routeFrascoCruz" style="color: var(--frasco-color); font-weight: bold; margin: 0;">Enviar frasco cruz</label>
+            </div>
+
             <div class="modal-actions">
                 <button class="btn btn-danger" onclick="closeModal('modalRoute')">Cancelar</button>
                 <button class="btn btn-success" id="btnSaveRoute" onclick="saveRoute()">Adicionar</button>
@@ -357,6 +372,7 @@
                         observacoes: r.observacoes,
                         enviarEsterelizaveis: r.enviar_esterelizaveis,
                         enviarEquiposBic: r.enviar_equipos_bic,
+                        enviarFrascoCruz: r.enviar_frasco_cruz, 
                         separado: r.separado 
                     });
                 });
@@ -491,6 +507,11 @@
                     if (route.enviarEquiposBic) {
                         badgeEquiposHtml = `<div class="badge-equipos">💧 Equipos BIC</div>`;
                     }
+                    
+                    let badgeFrascoHtml = '';
+                    if (route.enviarFrascoCruz) {
+                        badgeFrascoHtml = `<div class="badge-frasco">➕ Frasco Cruz</div>`;
+                    }
 
                     let btnSeparadoHtml = `
                         <button class="btn-separado ${route.separado ? 'ativo' : ''}" onclick="toggleSeparado(${route.id}, ${!route.separado}, '${selectedDateString}')">
@@ -513,6 +534,7 @@
                         <div class="card-footer-tags">
                             ${badgeHtml}
                             ${badgeEquiposHtml}
+                            ${badgeFrascoHtml}
                             ${btnSeparadoHtml}
                         </div>
                     `;
@@ -544,11 +566,14 @@
         // FUNÇÕES DE PACIENTES
         // ==========================================
 
-        function openPatientsListModal() {
+        function renderPatientsTable(filterText = '') {
             const tbody = document.getElementById('patientsTableBody');
             tbody.innerHTML = '';
             
-            patientsData.forEach(p => {
+            const lowerFilter = filterText.toLowerCase();
+            const filteredPatients = patientsData.filter(p => p.nome.toLowerCase().includes(lowerFilter));
+
+            filteredPatients.forEach(p => {
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td>${p.nome} ${p.itemEspecifico ? '<span style="color:red;" title="Item Específico">⚠️</span>' : ''}</td>
@@ -560,6 +585,16 @@
                 `;
                 tbody.appendChild(tr);
             });
+        }
+
+        function filterPatientsList() {
+            const val = document.getElementById('searchPatientListInput').value;
+            renderPatientsTable(val);
+        }
+
+        function openPatientsListModal() {
+            document.getElementById('searchPatientListInput').value = ''; // Limpa a busca ao abrir
+            renderPatientsTable(); // Renderiza a tabela completa
             document.getElementById('modalListPatients').style.display = 'flex';
         }
 
@@ -680,6 +715,7 @@
             document.getElementById('routeObs').value = route.observacoes || '';
             document.getElementById('routeEsterelizaveis').checked = route.enviarEsterelizaveis;
             document.getElementById('routeEquiposBic').checked = route.enviarEquiposBic;
+            document.getElementById('routeFrascoCruz').checked = route.enviarFrascoCruz;
 
             document.getElementById('modalRoute').style.display = 'flex';
         }
@@ -690,12 +726,13 @@
             const observacoes = document.getElementById('routeObs').value;
             const enviar_esterelizaveis = document.getElementById('routeEsterelizaveis').checked;
             const enviar_equipos_bic = document.getElementById('routeEquiposBic').checked;
+            const enviar_frasco_cruz = document.getElementById('routeFrascoCruz').checked;
 
             if (!horario) { alert("O Horário é obrigatório!"); return; }
 
             try {
                 if (editingRouteId) {
-                    const payload = { horario, observacoes, enviar_esterelizaveis, enviar_equipos_bic };
+                    const payload = { horario, observacoes, enviar_esterelizaveis, enviar_equipos_bic, enviar_frasco_cruz };
                     const { error } = await client.from('rotas').update(payload).eq('id', editingRouteId);
                     if (error) throw error;
                     
@@ -713,6 +750,7 @@
                         observacoes: observacoes,
                         enviar_esterelizaveis: enviar_esterelizaveis,
                         enviar_equipos_bic: enviar_equipos_bic,
+                        enviar_frasco_cruz: enviar_frasco_cruz,
                         separado: false
                     }));
 
@@ -731,6 +769,7 @@
                         observacoes: observacoes,
                         enviar_esterelizaveis: enviar_esterelizaveis,
                         enviar_equipos_bic: enviar_equipos_bic,
+                        enviar_frasco_cruz: enviar_frasco_cruz,
                         separado: false
                     };
                     const { error } = await client.from('rotas').insert([payload]);
