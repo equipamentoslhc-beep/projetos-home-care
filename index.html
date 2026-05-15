@@ -170,6 +170,8 @@
             <div class="route-header">
                 <h3 id="selectedDateText">Selecione uma data</h3>
                 <div class="route-header-actions">
+                    <button class="btn btn-secondary btn-sm" id="btnSelectAll" style="display: none;" onclick="toggleSelectAll()">☑️ Selecionar Todos</button>
+                    
                     <button class="btn btn-danger btn-sm" id="btnDeleteSelected" style="display: none;" onclick="deleteSelectedRoutes()">🗑️ Excluir Selecionados</button>
                     <button class="btn btn-secondary btn-sm" id="btnToggleView" style="display: none;" onclick="toggleViewMode()">Ver Detalhes</button>
                     <button class="btn" id="btnAddRoute" style="display: none;" onclick="openRouteModal()">+ Rota</button>
@@ -364,6 +366,7 @@
         const btnAddRoute = document.getElementById('btnAddRoute');
         const btnToggleView = document.getElementById('btnToggleView');
         const btnDeleteSelected = document.getElementById('btnDeleteSelected');
+        const btnSelectAll = document.getElementById('btnSelectAll');
 
         async function initData() {
             try {
@@ -477,12 +480,39 @@
             showRoutes();
         }
 
+        // --- LÓGICA DE SELEÇÃO EM LOTE ---
+
+        function toggleSelectAll() {
+            const checkboxes = document.querySelectorAll('.route-checkbox');
+            if (checkboxes.length === 0) return;
+
+            // Verifica se TODAS estão marcadas
+            const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+            
+            // Se todas estiverem marcadas, desmarca. Senão, marca todas.
+            checkboxes.forEach(cb => {
+                cb.checked = !allChecked;
+            });
+            
+            toggleBatchDeleteBtn();
+        }
+
         function toggleBatchDeleteBtn() {
+            const checkboxes = document.querySelectorAll('.route-checkbox');
             const checkedBoxes = document.querySelectorAll('.route-checkbox:checked');
+            
+            // Controla a exibição do botão Excluir Selecionados
             if (checkedBoxes.length > 0) {
                 btnDeleteSelected.style.display = 'inline-block';
             } else {
                 btnDeleteSelected.style.display = 'none';
+            }
+
+            // Atualiza o texto do botão Selecionar Todos
+            if (checkboxes.length > 0 && checkedBoxes.length === checkboxes.length) {
+                btnSelectAll.textContent = '☐ Desmarcar Todos';
+            } else {
+                btnSelectAll.textContent = '☑️ Selecionar Todos';
             }
         }
 
@@ -494,16 +524,14 @@
                 return;
             }
 
-            // Pega todos os IDs selecionados
             const idsToDelete = Array.from(checkedBoxes).map(cb => parseInt(cb.value));
 
             try {
-                // Delete em lote (múltiplos IDs de uma vez) usando a função .in() do Supabase
                 const { error } = await client.from('rotas').delete().in('id', idsToDelete);
                 if (error) throw error;
                 
                 alert(`${checkedBoxes.length} paciente(s) removido(s) com sucesso!`);
-                initData(); // Atualiza a tela puxando do banco novamente
+                initData(); 
             } catch (error) {
                 alert("Erro ao remover pacientes em lote: " + error.message);
             }
@@ -515,13 +543,17 @@
             btnAddRoute.style.display = 'block'; 
             btnToggleView.style.display = 'block';
             btnToggleView.textContent = isSimplifiedMode ? 'Ver Detalhes' : 'Simplificar';
-            btnDeleteSelected.style.display = 'none'; // Esconde o botão de excluir ao recarregar a lista
+            
+            // Reset dos botões de lote ao carregar a lista
+            btnDeleteSelected.style.display = 'none'; 
+            btnSelectAll.textContent = '☑️ Selecionar Todos';
 
             routeContent.innerHTML = '';
 
             const dailyRoutes = routesData[selectedDateString] || [];
 
             if (dailyRoutes.length > 0) {
+                btnSelectAll.style.display = 'inline-block'; // Mostra botão de selecionar todos
                 dailyRoutes.sort((a, b) => a.horario.localeCompare(b.horario));
 
                 dailyRoutes.forEach(route => {
@@ -594,7 +626,6 @@
                         </button>
                     `;
 
-                    // Card Render - ADICIONADO CHECKBOX AQUI NA LINHA DO TÍTULO
                     card.innerHTML = `
                         <div class="route-card-top">
                             <div class="route-card-title-group">
@@ -619,6 +650,7 @@
                     routeContent.appendChild(card);
                 });
             } else {
+                btnSelectAll.style.display = 'none'; // Esconde botão se não tem pacientes
                 routeContent.innerHTML = '<p class="no-routes">Nenhum paciente agendado para este dia.</p>';
             }
         }
