@@ -43,6 +43,8 @@
         .btn-success:hover { background-color: #218838; }
         .btn-danger { background-color: var(--alert-color); }
         .btn-danger:hover { background-color: #c82333; }
+        .btn-warning { background-color: var(--warning-color); }
+        .btn-warning:hover { background-color: #e68a00; }
         .btn-secondary { background-color: #6c757d; }
         .btn-secondary:hover { background-color: #5a6268; }
         .btn-sm { padding: 5px 10px; font-size: 0.85rem; }
@@ -68,7 +70,6 @@
         .route-header-actions { display: flex; gap: 10px; align-items: center; }
         .route-content { flex-grow: 1; overflow-y: auto; max-height: 600px; padding-right: 5px; }
         
-        /* AJUSTES DE COMPACTAÇÃO DOS CARTÕES */
         .patient-card { background: var(--bg-color); border-left: 4px solid var(--primary-color); padding: 8px 12px; margin-bottom: 8px; border-radius: 4px; position: relative; }
         .patient-card.item-especifico { border-left: 5px solid var(--alert-color); background-color: #fff3f3; }
         
@@ -85,7 +86,6 @@
         
         .card-footer-tags { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 4px; }
         
-        /* BOTÕES DE ITENS (Esterelizáveis, Equipos, Frasco) */
         .btn-item { border: none; cursor: pointer; padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; font-family: inherit; color: white; box-shadow: 0 1px 2px rgba(0,0,0,0.1); transition: all 0.2s; display: inline-flex; align-items: center; gap: 4px;}
         .btn-item:hover { filter: brightness(0.9); transform: scale(1.02); }
         .badge-esterelizavel { background-color: var(--warning-color); }
@@ -93,9 +93,11 @@
         .badge-frasco { background-color: var(--frasco-color); }
         .btn-item.checked-item { opacity: 0.6; box-shadow: inset 0 0 0 2px rgba(255,255,255,0.4); }
 
-        /* Botão Geral de Separado */
+        /* LÓGICA DE CORES DO BOTÃO DE SEPARAÇÃO (3 ESTÁGIOS) */
         .btn-separado { padding: 4px 10px; border-radius: 4px; border: 1px solid #aaa; background-color: #fff; cursor: pointer; font-weight: bold; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 5px; transition: all 0.2s; color: #555; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
         .btn-separado:hover { background-color: #f0f0f0; }
+        .btn-separado.controlado { background-color: #fff3cd; border-color: #ffeeba; color: #856404; }
+        .btn-separado.controlado:hover { background-color: #ffe8a1; }
         .btn-separado.ativo { background-color: #d4edda; border-color: #28a745; color: #155724; }
         .btn-separado.ativo:hover { background-color: #c3e6cb; }
 
@@ -313,6 +315,18 @@
         </div>
     </div>
 
+    <div id="modalControlado" class="modal">
+        <div class="modal-content" style="max-width: 350px; text-align: center;">
+            <h3 style="margin-top: 0; color: var(--primary-color);">Atenção na Separação</h3>
+            <p style="font-size: 1.1rem; margin-bottom: 25px; color: #444;">Está faltando <strong>medicamento controlado</strong> para este paciente ser finalizado pela farmácia?</p>
+            <div style="display: flex; gap: 10px; justify-content: center;">
+                <button class="btn btn-warning" onclick="confirmarControlado(true)">Sim, pendente</button>
+                <button class="btn btn-success" onclick="confirmarControlado(false)">Não, tudo separado</button>
+            </div>
+            <button class="btn btn-secondary" style="margin-top: 15px; width: 100%;" onclick="closeModal('modalControlado')">Cancelar (Sair)</button>
+        </div>
+    </div>
+
     <script>
         const SUPABASE_URL = 'https://dtnzofvudffecstilywe.supabase.co';
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR0bnpvZnZ1ZGZmZWNzdGlseXdlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg2ODcwNjYsImV4cCI6MjA5NDI2MzA2Nn0.272K6s3cXdf5VY2LZ2HtcLDYg017H79gy9TQ3bQZkss';
@@ -335,7 +349,10 @@
         let editingPatientId = null;
         let editingRouteId = null; 
 
-        // Controle da Visualização Simplificada
+        // Variáveis para o fluxo de separação do Controlado
+        let currentRouteIdForSeparation = null;
+        let currentDateForSeparation = null;
+
         let isSimplifiedMode = true; 
 
         const monthYearText = document.getElementById('monthYear');
@@ -375,7 +392,7 @@
                         enviarEquiposBic: r.enviar_equipos_bic,
                         enviarFrascoCruz: r.enviar_frasco_cruz, 
                         separado: r.separado,
-                        // Novos campos para os checkboxes
+                        pendenteControlado: r.pendente_controlado || false, 
                         esterelizaveisSeparado: r.esterelizaveis_separado || false,
                         equiposBicSeparado: r.equipos_bic_separado || false,
                         frascoCruzSeparado: r.frasco_cruz_separado || false
@@ -388,8 +405,8 @@
                 if(selectedDateString) showRoutes();
 
             } catch (error) {
-                console.error("Erro ao buscar dados do Supabase:", error);
-                alert("Erro de conexão com o banco de dados. Confirme se as 3 novas colunas foram criadas no SQL Editor.");
+                console.error("Erro ao buscar dados:", error);
+                alert("Erro ao conectar. Lembre-se de criar a nova coluna no Supabase: ALTER TABLE rotas ADD COLUMN pendente_controlado boolean DEFAULT false;");
                 document.getElementById('loadingOverlay').innerHTML = "Falha ao conectar com Supabase.";
             }
         }
@@ -500,7 +517,7 @@
                         `;
                     }
 
-                    // Elementos que sempre aparecem (Tags clicáveis, Separado)
+                    // Etiquetas Clicáveis
                     let badgeHtml = '';
                     if (route.enviarEsterelizaveis) {
                         const checked = route.esterelizaveisSeparado;
@@ -525,13 +542,25 @@
                         </button>`;
                     }
 
+                    // LÓGICA DO BOTÃO DE 3 ESTADOS
+                    let btnStatusClass = '';
+                    let btnStatusText = '📦 Separar';
+
+                    if (route.separado) {
+                        btnStatusClass = 'ativo';
+                        btnStatusText = '✅ Separado';
+                    } else if (route.pendenteControlado) {
+                        btnStatusClass = 'controlado';
+                        btnStatusText = '💊 Pendente Controlado';
+                    }
+
                     let btnSeparadoHtml = `
-                        <button class="btn-separado ${route.separado ? 'ativo' : ''}" onclick="toggleSeparado(${route.id}, ${!route.separado}, '${selectedDateString}')">
-                            ${route.separado ? '✅ Separado' : '📦 Separar'}
+                        <button class="btn-separado ${btnStatusClass}" onclick="handleSeparationClick(${route.id}, '${selectedDateString}')">
+                            ${btnStatusText}
                         </button>
                     `;
 
-                    // Renderização Final do Card
+                    // Renderização Final
                     card.innerHTML = `
                         <div class="route-card-top">
                             <h4>Pac: ${patient.nome} ${patient.itemEspecifico ? '<span title="Item Específico">⚠️</span>' : ''}</h4>
@@ -557,10 +586,72 @@
             }
         }
 
-        // Função para atualizar os itens individuais (Esterelizáveis, Equipos, Frasco)
+        // ==========================================
+        // LÓGICA DE SEPARAÇÃO (3 ESTADOS)
+        // ==========================================
+
+        function handleSeparationClick(routeId, dateString) {
+            const route = routesData[dateString].find(r => r.id === routeId);
+
+            if (route.separado) {
+                // Estágio 3 -> Desfazer tudo (Voltar para o começo)
+                if(confirm("Deseja desfazer a separação? O status voltará para inicial.")) {
+                    updateSeparationStatus(routeId, dateString, false, false);
+                }
+            } else if (route.pendenteControlado) {
+                // Estágio 2 -> Farmacêutico terminou de separar o controlado (Finalizar)
+                if(confirm("Confirmar que os medicamentos controlados foram separados e a caixa está pronta?")) {
+                    updateSeparationStatus(routeId, dateString, true, false); 
+                }
+            } else {
+                // Estágio 1 -> Auxiliar clicou em separar. Abrir Modal de pergunta.
+                currentRouteIdForSeparation = routeId;
+                currentDateForSeparation = dateString;
+                document.getElementById('modalControlado').style.display = 'flex';
+            }
+        }
+
+        function confirmarControlado(faltaControlado) {
+            closeModal('modalControlado');
+            if (faltaControlado) {
+                // Vai para Pendente Controlado (Falta Farmácia)
+                updateSeparationStatus(currentRouteIdForSeparation, currentDateForSeparation, false, true);
+            } else {
+                // Vai direto para Separado Finalizado
+                updateSeparationStatus(currentRouteIdForSeparation, currentDateForSeparation, true, false);
+            }
+        }
+
+        async function updateSeparationStatus(routeId, dateString, isSeparado, isPendenteControlado) {
+            try {
+                // Atualiza a tela primeiro
+                const routeIndex = routesData[dateString].findIndex(r => r.id === routeId);
+                if (routeIndex > -1) {
+                    routesData[dateString][routeIndex].separado = isSeparado;
+                    routesData[dateString][routeIndex].pendenteControlado = isPendenteControlado;
+                    showRoutes(); 
+                }
+
+                // Salva no banco
+                const { error } = await client.from('rotas').update({ 
+                    separado: isSeparado, 
+                    pendente_controlado: isPendenteControlado 
+                }).eq('id', routeId);
+                
+                if (error) throw error;
+                
+            } catch(e) {
+                alert("Erro ao atualizar status: " + e.message);
+                initData(); 
+            }
+        }
+
+        // ==========================================
+        // ITENS INDIVIDUAIS
+        // ==========================================
+
         async function toggleItemStatus(routeId, field, novoStatus, dateString) {
             try {
-                // Atualização visual instantânea
                 const routeIndex = routesData[dateString].findIndex(r => r.id === routeId);
                 if (routeIndex > -1) {
                     if (field === 'esterelizaveis_separado') routesData[dateString][routeIndex].esterelizaveisSeparado = novoStatus;
@@ -569,30 +660,10 @@
                     showRoutes(); 
                 }
 
-                // Salva no banco de dados
                 const { error } = await client.from('rotas').update({ [field]: novoStatus }).eq('id', routeId);
                 if (error) throw error;
-                
             } catch(e) {
                 alert("Erro ao atualizar status do item: " + e.message);
-                initData(); 
-            }
-        }
-
-        // Função do botão principal de "Separado"
-        async function toggleSeparado(routeId, novoStatus, dateString) {
-            try {
-                const routeIndex = routesData[dateString].findIndex(r => r.id === routeId);
-                if (routeIndex > -1) {
-                    routesData[dateString][routeIndex].separado = novoStatus;
-                    showRoutes(); 
-                }
-
-                const { error } = await client.from('rotas').update({ separado: novoStatus }).eq('id', routeId);
-                if (error) throw error;
-                
-            } catch(e) {
-                alert("Erro ao atualizar status: " + e.message);
                 initData(); 
             }
         }
@@ -701,7 +772,7 @@
         }
 
         async function deletePatient(id) {
-            const confirmDelete = confirm("Tem certeza que deseja excluir este paciente?\n\nAtenção: Ele também será removido de todas as rotas agendadas (Devido ao CASCADE no banco).");
+            const confirmDelete = confirm("Tem certeza que deseja excluir este paciente?\n\nAtenção: Ele também será removido de todas as rotas agendadas.");
             if (confirmDelete) {
                 try {
                     const { error } = await client.from('pacientes').delete().eq('id', id);
@@ -715,7 +786,7 @@
         }
 
         // ==========================================
-        // FUNÇÕES DE ROTAS
+        // FUNÇÕES DE ROTAS (CRUD)
         // ==========================================
 
         function toggleRouteType() {
@@ -786,7 +857,8 @@
                         enviar_esterelizaveis: enviar_esterelizaveis,
                         enviar_equipos_bic: enviar_equipos_bic,
                         enviar_frasco_cruz: enviar_frasco_cruz,
-                        separado: false
+                        separado: false,
+                        pendente_controlado: false
                     }));
 
                     const { error } = await client.from('rotas').insert(payloads);
@@ -805,7 +877,8 @@
                         enviar_esterelizaveis: enviar_esterelizaveis,
                         enviar_equipos_bic: enviar_equipos_bic,
                         enviar_frasco_cruz: enviar_frasco_cruz,
-                        separado: false
+                        separado: false,
+                        pendente_controlado: false
                     };
                     const { error } = await client.from('rotas').insert([payload]);
                     if(error) throw error;
