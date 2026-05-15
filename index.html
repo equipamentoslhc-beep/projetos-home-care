@@ -84,11 +84,17 @@
         .extra-details p { margin: 2px 0; font-size: 0.85rem; color: #555; }
         
         .card-footer-tags { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 4px; }
-        .badge-esterelizavel { display: inline-block; background-color: var(--warning-color); color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
-        .badge-equipos { display: inline-block; background-color: var(--info-color); color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
-        .badge-frasco { display: inline-block; background-color: var(--frasco-color); color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
         
-        .btn-separado { padding: 2px 8px; border-radius: 4px; border: 1px solid #aaa; background-color: #fff; cursor: pointer; font-weight: bold; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 4px; transition: all 0.2s; color: #555; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+        /* BOTÕES DE ITENS (Esterelizáveis, Equipos, Frasco) */
+        .btn-item { border: none; cursor: pointer; padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; font-family: inherit; color: white; box-shadow: 0 1px 2px rgba(0,0,0,0.1); transition: all 0.2s; display: inline-flex; align-items: center; gap: 4px;}
+        .btn-item:hover { filter: brightness(0.9); transform: scale(1.02); }
+        .badge-esterelizavel { background-color: var(--warning-color); }
+        .badge-equipos { background-color: var(--info-color); }
+        .badge-frasco { background-color: var(--frasco-color); }
+        .btn-item.checked-item { opacity: 0.6; box-shadow: inset 0 0 0 2px rgba(255,255,255,0.4); }
+
+        /* Botão Geral de Separado */
+        .btn-separado { padding: 4px 10px; border-radius: 4px; border: 1px solid #aaa; background-color: #fff; cursor: pointer; font-weight: bold; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 5px; transition: all 0.2s; color: #555; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
         .btn-separado:hover { background-color: #f0f0f0; }
         .btn-separado.ativo { background-color: #d4edda; border-color: #28a745; color: #155724; }
         .btn-separado.ativo:hover { background-color: #c3e6cb; }
@@ -170,12 +176,10 @@
         </div>
     </div>
 
-    <!-- Modal Lista de Pacientes -->
     <div id="modalListPatients" class="modal">
         <div class="modal-content large">
             <h3>Pacientes Cadastrados</h3>
             
-            <!-- Nova Barra de Pesquisa de Pacientes -->
             <div style="margin-top: 10px; margin-bottom: 15px;">
                 <input type="text" id="searchPatientListInput" placeholder="🔍 Buscar paciente por nome..." oninput="filterPatientsList()" style="width: 100%; padding: 8px; border: 1px solid var(--border-color); border-radius: 4px; box-sizing: border-box;">
             </div>
@@ -198,7 +202,6 @@
         </div>
     </div>
 
-    <!-- Modal Cadastrar/Editar Paciente -->
     <div id="modalPatient" class="modal">
         <div class="modal-content">
             <h3 id="modalPatientTitle">Cadastrar Paciente</h3>
@@ -247,7 +250,6 @@
         </div>
     </div>
 
-    <!-- Modal Adicionar/Editar Rota -->
     <div id="modalRoute" class="modal">
         <div class="modal-content">
             <h3 id="modalRouteTitle">Adicionar à Rota do Dia</h3>
@@ -299,7 +301,6 @@
                 <label for="routeEquiposBic" style="color: var(--info-color); font-weight: bold; margin: 0;">Enviar equipos BIC enteral</label>
             </div>
 
-            <!-- Nova opção Frasco Cruz -->
             <div class="form-group checkbox-group">
                 <input type="checkbox" id="routeFrascoCruz">
                 <label for="routeFrascoCruz" style="color: var(--frasco-color); font-weight: bold; margin: 0;">Enviar frasco cruz</label>
@@ -373,7 +374,11 @@
                         enviarEsterelizaveis: r.enviar_esterelizaveis,
                         enviarEquiposBic: r.enviar_equipos_bic,
                         enviarFrascoCruz: r.enviar_frasco_cruz, 
-                        separado: r.separado 
+                        separado: r.separado,
+                        // Novos campos para os checkboxes
+                        esterelizaveisSeparado: r.esterelizaveis_separado || false,
+                        equiposBicSeparado: r.equipos_bic_separado || false,
+                        frascoCruzSeparado: r.frasco_cruz_separado || false
                     });
                 });
 
@@ -384,7 +389,7 @@
 
             } catch (error) {
                 console.error("Erro ao buscar dados do Supabase:", error);
-                alert("Erro de conexão com o banco de dados. Confirme se a nova coluna foi adicionada.");
+                alert("Erro de conexão com o banco de dados. Confirme se as 3 novas colunas foram criadas no SQL Editor.");
                 document.getElementById('loadingOverlay').innerHTML = "Falha ao conectar com Supabase.";
             }
         }
@@ -455,7 +460,6 @@
         function showRoutes() {
             selectedDateText.textContent = `Rota para ${selectedDayInfo}`;
             
-            // Exibir os botões do cabeçalho
             btnAddRoute.style.display = 'block'; 
             btnToggleView.style.display = 'block';
             btnToggleView.textContent = isSimplifiedMode ? 'Ver Detalhes' : 'Simplificar';
@@ -478,7 +482,6 @@
                         card.classList.add('item-especifico');
                     }
 
-                    // Seções Extras (que serão escondidas no modo simples)
                     let extraDetailsHtml = '';
                     if (!isSimplifiedMode) {
                         let detalhesItemEspecifico = '';
@@ -497,20 +500,29 @@
                         `;
                     }
 
-                    // Elementos que sempre aparecem (Tags, Separado)
+                    // Elementos que sempre aparecem (Tags clicáveis, Separado)
                     let badgeHtml = '';
                     if (route.enviarEsterelizaveis) {
-                        badgeHtml = `<div class="badge-esterelizavel">🧼 Esterelizáveis</div>`;
+                        const checked = route.esterelizaveisSeparado;
+                        badgeHtml = `<button class="btn-item badge-esterelizavel ${checked ? 'checked-item' : ''}" onclick="toggleItemStatus(${route.id}, 'esterelizaveis_separado', ${!checked}, '${selectedDateString}')">
+                            ${checked ? '✅' : '🧼'} Esterelizáveis
+                        </button>`;
                     }
                     
                     let badgeEquiposHtml = '';
                     if (route.enviarEquiposBic) {
-                        badgeEquiposHtml = `<div class="badge-equipos">💧 Equipos BIC</div>`;
+                        const checked = route.equiposBicSeparado;
+                        badgeEquiposHtml = `<button class="btn-item badge-equipos ${checked ? 'checked-item' : ''}" onclick="toggleItemStatus(${route.id}, 'equipos_bic_separado', ${!checked}, '${selectedDateString}')">
+                            ${checked ? '✅' : '💧'} Equipos BIC
+                        </button>`;
                     }
                     
                     let badgeFrascoHtml = '';
                     if (route.enviarFrascoCruz) {
-                        badgeFrascoHtml = `<div class="badge-frasco">➕ Frasco Cruz</div>`;
+                        const checked = route.frascoCruzSeparado;
+                        badgeFrascoHtml = `<button class="btn-item badge-frasco ${checked ? 'checked-item' : ''}" onclick="toggleItemStatus(${route.id}, 'frasco_cruz_separado', ${!checked}, '${selectedDateString}')">
+                            ${checked ? '✅' : '➕'} Frasco Cruz
+                        </button>`;
                     }
 
                     let btnSeparadoHtml = `
@@ -545,6 +557,29 @@
             }
         }
 
+        // Função para atualizar os itens individuais (Esterelizáveis, Equipos, Frasco)
+        async function toggleItemStatus(routeId, field, novoStatus, dateString) {
+            try {
+                // Atualização visual instantânea
+                const routeIndex = routesData[dateString].findIndex(r => r.id === routeId);
+                if (routeIndex > -1) {
+                    if (field === 'esterelizaveis_separado') routesData[dateString][routeIndex].esterelizaveisSeparado = novoStatus;
+                    if (field === 'equipos_bic_separado') routesData[dateString][routeIndex].equiposBicSeparado = novoStatus;
+                    if (field === 'frasco_cruz_separado') routesData[dateString][routeIndex].frascoCruzSeparado = novoStatus;
+                    showRoutes(); 
+                }
+
+                // Salva no banco de dados
+                const { error } = await client.from('rotas').update({ [field]: novoStatus }).eq('id', routeId);
+                if (error) throw error;
+                
+            } catch(e) {
+                alert("Erro ao atualizar status do item: " + e.message);
+                initData(); 
+            }
+        }
+
+        // Função do botão principal de "Separado"
         async function toggleSeparado(routeId, novoStatus, dateString) {
             try {
                 const routeIndex = routesData[dateString].findIndex(r => r.id === routeId);
@@ -593,8 +628,8 @@
         }
 
         function openPatientsListModal() {
-            document.getElementById('searchPatientListInput').value = ''; // Limpa a busca ao abrir
-            renderPatientsTable(); // Renderiza a tabela completa
+            document.getElementById('searchPatientListInput').value = ''; 
+            renderPatientsTable(); 
             document.getElementById('modalListPatients').style.display = 'flex';
         }
 
