@@ -34,8 +34,8 @@
         .logos-container img { max-height: 60px; object-fit: contain; }
         .logos-container h1 { margin: 0; font-size: 1.8rem; color: var(--primary-color); text-align: center; flex-grow: 1; padding: 0 15px; }
         
-        .header-main { display: flex; justify-content: flex-end; width: 100%; }
-        .header-actions { display: flex; gap: 10px; }
+        .header-main { display: flex; justify-content: space-between; align-items: center; width: 100%; }
+        .header-actions { display: flex; gap: 10px; justify-content: flex-end; width: 100%; flex-wrap: wrap;}
 
         .btn { background-color: var(--primary-color); color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: bold; transition: background 0.2s; }
         .btn:hover { background-color: #004494; }
@@ -109,7 +109,7 @@
         .modal-content h3 { margin-top: 0; }
         .form-group { margin-bottom: 15px; position: relative; }
         .form-group label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 0.9rem;}
-        .form-group input[type="text"], .form-group input[type="time"], .form-group input[type="date"], .form-group select { width: 100%; padding: 8px; border: 1px solid var(--border-color); border-radius: 4px; box-sizing: border-box; }
+        .form-group input[type="text"], .form-group input[type="time"], .form-group input[type="date"], .form-group input[type="password"], .form-group select { width: 100%; padding: 8px; border: 1px solid var(--border-color); border-radius: 4px; box-sizing: border-box; }
         .form-group.checkbox-group { display: flex; align-items: center; gap: 10px; margin-bottom: 10px;}
         .form-group.checkbox-group input { width: auto; margin: 0; }
         
@@ -133,6 +133,9 @@
         #loadingOverlay { display: flex; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.8); z-index: 9999; justify-content: center; align-items: center; font-size: 1.5rem; font-weight: bold; color: var(--primary-color); }
 
         .route-checkbox { width: 16px; height: 16px; cursor: pointer; margin: 0; }
+        
+        /* Classe para esconder itens de gestão */
+        .admin-only { display: none; }
     </style>
 </head>
 <body>
@@ -142,13 +145,14 @@
     <div class="header-container">
         <div class="logos-container">
             <img src="logo sao luis horizontal.jpg" alt="Logo São Luís Home Care">
-            <h1>Painel - Gestão de Rotas SLHC</h1>
+            <h1>Painel Operacional - Gestão de Rotas</h1>
             <img src="Logo ONA 3 cerificado horizontal.jpeg" alt="Selo ONA 3">
         </div>
         <div class="header-main">
             <div class="header-actions">
-                <button class="btn" onclick="openPatientsListModal()">Gerenciar Pacientes</button>
-                <button class="btn btn-success" onclick="openPatientModal()">+ Cadastrar Novo Paciente</button>
+                <button class="btn admin-only" id="btnManagePatients" onclick="openPatientsListModal()">Gerenciar Pacientes</button>
+                <button class="btn btn-success admin-only" id="btnAddPatient" onclick="openPatientModal()">+ Cadastrar Novo Paciente</button>
+                <button class="btn btn-secondary" id="btnToggleAdmin" onclick="toggleAdminMode()">🔒 Acesso Gestor</button>
             </div>
         </div>
     </div>
@@ -170,16 +174,30 @@
             <div class="route-header">
                 <h3 id="selectedDateText">Selecione uma data</h3>
                 <div class="route-header-actions">
-                    <button class="btn btn-secondary btn-sm" id="btnSelectAll" style="display: none;" onclick="toggleSelectAll()">☑️ Selecionar Todos</button>
-                    <button class="btn btn-warning btn-sm" id="btnChangeDateSelected" style="display: none;" onclick="openChangeDateModal()">📅 Mudar Data</button>
-                    <button class="btn btn-danger btn-sm" id="btnDeleteSelected" style="display: none;" onclick="deleteSelectedRoutes()">🗑️ Excluir</button>
+                    <button class="btn btn-secondary btn-sm admin-only" id="btnSelectAll" style="display: none;" onclick="toggleSelectAll()">☑️ Selecionar Todos</button>
+                    <button class="btn btn-warning btn-sm admin-only" id="btnChangeDateSelected" style="display: none;" onclick="openChangeDateModal()">📅 Mudar Data</button>
+                    <button class="btn btn-danger btn-sm admin-only" id="btnDeleteSelected" style="display: none;" onclick="deleteSelectedRoutes()">🗑️ Excluir</button>
                     
                     <button class="btn btn-secondary btn-sm" id="btnToggleView" style="display: none;" onclick="toggleViewMode()">Ver Detalhes</button>
-                    <button class="btn" id="btnAddRoute" style="display: none;" onclick="openRouteModal()">+ Rota</button>
+                    <button class="btn admin-only" id="btnAddRoute" style="display: none;" onclick="openRouteModal()">+ Rota</button>
                 </div>
             </div>
             <div id="routeContent" class="route-content">
                 <p class="no-routes">Clique em um dia no calendário para ver ou adicionar rotas.</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="modalLogin" class="modal">
+        <div class="modal-content" style="max-width: 300px; text-align: center;">
+            <h3 style="margin-top: 0; color: var(--primary-color);">Acesso Restrito</h3>
+            <p style="font-size: 0.9rem; margin-bottom: 15px; color: #555;">Digite a senha para desbloquear as funções de gestão.</p>
+            <div class="form-group">
+                <input type="password" id="adminPasswordInput" placeholder="Senha do Gestor">
+            </div>
+            <div style="display: flex; gap: 10px; justify-content: center; margin-top: 20px;">
+                <button class="btn btn-secondary" onclick="closeModal('modalLogin')">Cancelar</button>
+                <button class="btn btn-success" onclick="verifyAdminPassword()">Desbloquear</button>
             </div>
         </div>
     </div>
@@ -373,6 +391,9 @@
         let currentDateForSeparation = null;
 
         let isSimplifiedMode = true; 
+        
+        // --- VARIÁVEL DE CONTROLE DE ACESSO GESTOR ---
+        let isAdmin = false; 
 
         const monthYearText = document.getElementById('monthYear');
         const calendarDays = document.getElementById('calendarDays');
@@ -384,6 +405,59 @@
         const btnDeleteSelected = document.getElementById('btnDeleteSelected');
         const btnChangeDateSelected = document.getElementById('btnChangeDateSelected');
         const btnSelectAll = document.getElementById('btnSelectAll');
+        const btnToggleAdmin = document.getElementById('btnToggleAdmin');
+
+        // LÓGICA DE LOGIN GESTOR
+        function toggleAdminMode() {
+            if (isAdmin) {
+                // Se já é admin, sai do modo admin
+                isAdmin = false;
+                updateAdminUI();
+            } else {
+                // Se não é admin, abre a tela de senha
+                document.getElementById('adminPasswordInput').value = '';
+                document.getElementById('modalLogin').style.display = 'flex';
+            }
+        }
+
+        function verifyAdminPassword() {
+            const pwd = document.getElementById('adminPasswordInput').value;
+            // ==========================================
+            // TROQUE SUA SENHA AQUI:
+            // ==========================================
+            if (pwd === "Slhc@2026") {
+                isAdmin = true;
+                closeModal('modalLogin');
+                updateAdminUI();
+            } else {
+                alert("Senha incorreta!");
+            }
+        }
+
+        function updateAdminUI() {
+            // Mostra ou esconde elementos que têm a classe 'admin-only'
+            const adminElements = document.querySelectorAll('.admin-only');
+            adminElements.forEach(el => {
+                if (el.tagName === 'BUTTON') {
+                    // Para os botões do painel de cima
+                    if (el.id === 'btnManagePatients' || el.id === 'btnAddPatient') {
+                        el.style.display = isAdmin ? 'inline-block' : 'none';
+                    }
+                }
+            });
+
+            // Muda a cor e o texto do botão de cadeado
+            if (isAdmin) {
+                btnToggleAdmin.innerHTML = '🔓 Sair do Modo Gestor';
+                btnToggleAdmin.classList.replace('btn-secondary', 'btn-danger');
+            } else {
+                btnToggleAdmin.innerHTML = '🔒 Acesso Gestor';
+                btnToggleAdmin.classList.replace('btn-danger', 'btn-secondary');
+            }
+
+            // Recarrega as rotas na tela para mostrar ou esconder as caixas de seleção e botões Editar/Excluir
+            showRoutes();
+        }
 
         async function initData() {
             try {
@@ -423,8 +497,9 @@
                 });
 
                 document.getElementById('loadingOverlay').style.display = 'none';
-                renderCalendar();
                 
+                updateAdminUI(); // Roda a checagem visual logo no início
+                renderCalendar();
                 if(selectedDateString) showRoutes();
 
             } catch (error) {
@@ -500,6 +575,8 @@
         // --- LÓGICA DE AÇÕES EM LOTE ---
 
         function toggleSelectAll() {
+            if(!isAdmin) return; // Segurança extra
+
             const checkboxes = document.querySelectorAll('.route-checkbox');
             if (checkboxes.length === 0) return;
 
@@ -513,6 +590,8 @@
         }
 
         function toggleBatchActionsBtn() {
+            if(!isAdmin) return;
+
             const checkboxes = document.querySelectorAll('.route-checkbox');
             const checkedBoxes = document.querySelectorAll('.route-checkbox:checked');
             
@@ -532,6 +611,8 @@
         }
 
         async function deleteSelectedRoutes() {
+            if(!isAdmin) return;
+
             const checkedBoxes = document.querySelectorAll('.route-checkbox:checked');
             if (checkedBoxes.length === 0) return;
 
@@ -552,8 +633,8 @@
             }
         }
 
-        // Mudar data em lote
         function openChangeDateModal() {
+            if(!isAdmin) return;
             const checkedBoxes = document.querySelectorAll('.route-checkbox:checked');
             if (checkedBoxes.length === 0) return;
             
@@ -562,6 +643,7 @@
         }
 
         async function saveBatchDateChange() {
+            if(!isAdmin) return;
             const newDate = document.getElementById('newBatchDate').value;
             if (!newDate) { alert("Selecione uma nova data!"); return; }
 
@@ -588,13 +670,20 @@
         function showRoutes() {
             selectedDateText.textContent = `Rota para ${selectedDayInfo}`;
             
-            btnAddRoute.style.display = 'block'; 
             btnToggleView.style.display = 'block';
             btnToggleView.textContent = isSimplifiedMode ? 'Ver Detalhes' : 'Simplificar';
             
-            // Reset dos botões de lote
+            // Controle dos botões superiores dependendo se é admin
+            if (isAdmin) {
+                btnAddRoute.style.display = 'block';
+            } else {
+                btnAddRoute.style.display = 'none';
+            }
+
+            // Reset dos botões de lote (Sempre esconde ao recarregar, só mostra se tiver itens e for admin)
             btnDeleteSelected.style.display = 'none'; 
             btnChangeDateSelected.style.display = 'none';
+            btnSelectAll.style.display = 'none';
             btnSelectAll.textContent = '☑️ Selecionar Todos';
 
             routeContent.innerHTML = '';
@@ -602,7 +691,8 @@
             const dailyRoutes = routesData[selectedDateString] || [];
 
             if (dailyRoutes.length > 0) {
-                btnSelectAll.style.display = 'inline-block'; 
+                if (isAdmin) btnSelectAll.style.display = 'inline-block'; 
+                
                 dailyRoutes.sort((a, b) => a.horario.localeCompare(b.horario));
 
                 dailyRoutes.forEach(route => {
@@ -675,16 +765,22 @@
                         </button>
                     `;
 
+                    // Lógica para mostrar checkbox e botões de editar/excluir SOMENTE SE FOR ADMIN
+                    let adminCheckHtml = isAdmin ? `<input type="checkbox" class="route-checkbox" value="${route.id}" onchange="toggleBatchActionsBtn()">` : '';
+                    let adminActionsHtml = isAdmin ? `
+                        <div class="route-card-actions">
+                            <button class="btn-action btn-edit" onclick="editRoute(${route.id}, '${selectedDateString}')" title="Editar Rota">✏️ Editar</button>
+                            <button class="btn-action btn-delete" onclick="deleteRoute(${route.id}, '${selectedDateString}')" title="Remover da Rota">X</button>
+                        </div>
+                    ` : '';
+
                     card.innerHTML = `
                         <div class="route-card-top">
                             <div class="route-card-title-group">
-                                <input type="checkbox" class="route-checkbox" value="${route.id}" onchange="toggleBatchActionsBtn()">
+                                ${adminCheckHtml}
                                 <h4>Pac: ${patient.nome} ${patient.itemEspecifico ? '<span title="Item Específico">⚠️</span>' : ''}</h4>
                             </div>
-                            <div class="route-card-actions">
-                                <button class="btn-action btn-edit" onclick="editRoute(${route.id}, '${selectedDateString}')" title="Editar Rota">✏️ Editar</button>
-                                <button class="btn-action btn-delete" onclick="deleteRoute(${route.id}, '${selectedDateString}')" title="Remover da Rota">X</button>
-                            </div>
+                            ${adminActionsHtml}
                         </div>
                         
                         ${extraDetailsHtml}
@@ -810,12 +906,14 @@
         }
 
         function openPatientsListModal() {
+            if(!isAdmin) return;
             document.getElementById('searchPatientListInput').value = ''; 
             renderPatientsTable(); 
             document.getElementById('modalListPatients').style.display = 'flex';
         }
 
         function openPatientModal() {
+            if(!isAdmin) return;
             editingPatientId = null; 
             document.getElementById('modalPatientTitle').textContent = "Cadastrar Novo Paciente";
             document.getElementById('divDescricaoItem').style.display = 'none'; 
@@ -828,6 +926,7 @@
         }
 
         function editPatient(id) {
+            if(!isAdmin) return;
             editingPatientId = id;
             const patient = patientsData.find(p => p.id === id);
             
@@ -849,6 +948,7 @@
         }
 
         async function savePatient() {
+            if(!isAdmin) return;
             const nome = document.getElementById('patNome').value;
             const endereco = document.getElementById('patEndereco').value;
             const telefone = document.getElementById('patTelefone').value;
@@ -883,6 +983,7 @@
         }
 
         async function deletePatient(id) {
+            if(!isAdmin) return;
             const confirmDelete = confirm("Tem certeza que deseja excluir este paciente?\n\nAtenção: Ele também será removido de todas as rotas agendadas.");
             if (confirmDelete) {
                 try {
@@ -913,6 +1014,7 @@
         }
 
         function editRoute(routeId, dateString) {
+            if(!isAdmin) return;
             editingRouteId = routeId;
             const route = routesData[dateString].find(r => r.id === routeId);
             const patient = patientsData.find(p => p.id === route.patientId);
@@ -938,6 +1040,7 @@
         }
 
         async function saveRoute() {
+            if(!isAdmin) return;
             const isGroup = document.querySelector('input[name="routeType"]:checked').value === 'grupo';
             const horario = document.getElementById('routeTime').value;
             const observacoes = document.getElementById('routeObs').value;
@@ -1004,6 +1107,7 @@
         }
 
         async function deleteRoute(routeId, dateString) {
+            if(!isAdmin) return;
             const confirmDelete = confirm("Remover este paciente da rota deste dia?");
             if (confirmDelete) {
                 try {
@@ -1071,6 +1175,7 @@
         });
 
         function openRouteModal() {
+            if(!isAdmin) return;
             editingRouteId = null;
             document.getElementById('modalRouteTitle').textContent = "Adicionar à Rota do Dia";
             document.getElementById('btnSaveRoute').textContent = "Adicionar";
@@ -1089,7 +1194,7 @@
 
         function closeModal(modalId) {
             document.getElementById(modalId).style.display = 'none';
-            if (modalId === 'modalPatient' || modalId === 'modalRoute' || modalId === 'modalChangeDate') {
+            if (modalId === 'modalPatient' || modalId === 'modalRoute' || modalId === 'modalChangeDate' || modalId === 'modalLogin') {
                 const inputs = document.querySelectorAll(`#${modalId} input:not([type="radio"]), #${modalId} select`);
                 inputs.forEach(input => {
                     if(input.type === 'checkbox') input.checked = false;
