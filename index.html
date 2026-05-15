@@ -67,14 +67,15 @@
         .route-details { flex: 1; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); min-width: 350px; display: flex; flex-direction: column; }
         .route-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--bg-color); padding-bottom: 10px; margin-bottom: 15px; flex-wrap: wrap; gap: 10px; }
         .route-header h3 { margin: 0; font-size: 1.2rem; }
-        .route-header-actions { display: flex; gap: 10px; align-items: center; }
+        .route-header-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap;}
         .route-content { flex-grow: 1; overflow-y: auto; max-height: 600px; padding-right: 5px; }
         
         .patient-card { background: var(--bg-color); border-left: 4px solid var(--primary-color); padding: 8px 12px; margin-bottom: 8px; border-radius: 4px; position: relative; }
         .patient-card.item-especifico { border-left: 5px solid var(--alert-color); background-color: #fff3f3; }
         
         .route-card-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 2px; }
-        .route-card-top h4 { margin: 0; color: inherit; flex-grow: 1; word-break: break-word; font-size: 0.95rem; }
+        .route-card-title-group { display: flex; align-items: center; gap: 8px; flex-grow: 1; word-break: break-word;}
+        .route-card-top h4 { margin: 0; color: inherit; font-size: 0.95rem; }
         .patient-card.item-especifico h4 { color: var(--alert-color); }
         
         .route-card-actions { display: flex; gap: 8px; flex-shrink: 0; align-items: center; }
@@ -93,7 +94,6 @@
         .badge-frasco { background-color: var(--frasco-color); }
         .btn-item.checked-item { opacity: 0.6; box-shadow: inset 0 0 0 2px rgba(255,255,255,0.4); }
 
-        /* LÓGICA DE CORES DO BOTÃO DE SEPARAÇÃO (3 ESTÁGIOS) */
         .btn-separado { padding: 4px 10px; border-radius: 4px; border: 1px solid #aaa; background-color: #fff; cursor: pointer; font-weight: bold; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 5px; transition: all 0.2s; color: #555; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
         .btn-separado:hover { background-color: #f0f0f0; }
         .btn-separado.controlado { background-color: #fff3cd; border-color: #ffeeba; color: #856404; }
@@ -131,6 +131,8 @@
         .searchable-option:hover { background-color: var(--bg-color); color: var(--primary-color); }
         
         #loadingOverlay { display: flex; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.8); z-index: 9999; justify-content: center; align-items: center; font-size: 1.5rem; font-weight: bold; color: var(--primary-color); }
+
+        .route-checkbox { width: 16px; height: 16px; cursor: pointer; margin: 0; }
     </style>
 </head>
 <body>
@@ -168,6 +170,7 @@
             <div class="route-header">
                 <h3 id="selectedDateText">Selecione uma data</h3>
                 <div class="route-header-actions">
+                    <button class="btn btn-danger btn-sm" id="btnDeleteSelected" style="display: none;" onclick="deleteSelectedRoutes()">🗑️ Excluir Selecionados</button>
                     <button class="btn btn-secondary btn-sm" id="btnToggleView" style="display: none;" onclick="toggleViewMode()">Ver Detalhes</button>
                     <button class="btn" id="btnAddRoute" style="display: none;" onclick="openRouteModal()">+ Rota</button>
                 </div>
@@ -349,7 +352,6 @@
         let editingPatientId = null;
         let editingRouteId = null; 
 
-        // Variáveis para o fluxo de separação do Controlado
         let currentRouteIdForSeparation = null;
         let currentDateForSeparation = null;
 
@@ -361,6 +363,7 @@
         const routeContent = document.getElementById('routeContent');
         const btnAddRoute = document.getElementById('btnAddRoute');
         const btnToggleView = document.getElementById('btnToggleView');
+        const btnDeleteSelected = document.getElementById('btnDeleteSelected');
 
         async function initData() {
             try {
@@ -406,7 +409,7 @@
 
             } catch (error) {
                 console.error("Erro ao buscar dados:", error);
-                alert("Erro ao conectar. Lembre-se de criar a nova coluna no Supabase: ALTER TABLE rotas ADD COLUMN pendente_controlado boolean DEFAULT false;");
+                alert("Erro ao conectar com Supabase.");
                 document.getElementById('loadingOverlay').innerHTML = "Falha ao conectar com Supabase.";
             }
         }
@@ -474,12 +477,45 @@
             showRoutes();
         }
 
+        function toggleBatchDeleteBtn() {
+            const checkedBoxes = document.querySelectorAll('.route-checkbox:checked');
+            if (checkedBoxes.length > 0) {
+                btnDeleteSelected.style.display = 'inline-block';
+            } else {
+                btnDeleteSelected.style.display = 'none';
+            }
+        }
+
+        async function deleteSelectedRoutes() {
+            const checkedBoxes = document.querySelectorAll('.route-checkbox:checked');
+            if (checkedBoxes.length === 0) return;
+
+            if (!confirm(`Tem certeza que deseja remover ${checkedBoxes.length} paciente(s) da rota deste dia?`)) {
+                return;
+            }
+
+            // Pega todos os IDs selecionados
+            const idsToDelete = Array.from(checkedBoxes).map(cb => parseInt(cb.value));
+
+            try {
+                // Delete em lote (múltiplos IDs de uma vez) usando a função .in() do Supabase
+                const { error } = await client.from('rotas').delete().in('id', idsToDelete);
+                if (error) throw error;
+                
+                alert(`${checkedBoxes.length} paciente(s) removido(s) com sucesso!`);
+                initData(); // Atualiza a tela puxando do banco novamente
+            } catch (error) {
+                alert("Erro ao remover pacientes em lote: " + error.message);
+            }
+        }
+
         function showRoutes() {
             selectedDateText.textContent = `Rota para ${selectedDayInfo}`;
             
             btnAddRoute.style.display = 'block'; 
             btnToggleView.style.display = 'block';
             btnToggleView.textContent = isSimplifiedMode ? 'Ver Detalhes' : 'Simplificar';
+            btnDeleteSelected.style.display = 'none'; // Esconde o botão de excluir ao recarregar a lista
 
             routeContent.innerHTML = '';
 
@@ -517,7 +553,6 @@
                         `;
                     }
 
-                    // Etiquetas Clicáveis
                     let badgeHtml = '';
                     if (route.enviarEsterelizaveis) {
                         const checked = route.esterelizaveisSeparado;
@@ -542,7 +577,6 @@
                         </button>`;
                     }
 
-                    // LÓGICA DO BOTÃO DE 3 ESTADOS
                     let btnStatusClass = '';
                     let btnStatusText = '📦 Separar';
 
@@ -560,10 +594,13 @@
                         </button>
                     `;
 
-                    // Renderização Final
+                    // Card Render - ADICIONADO CHECKBOX AQUI NA LINHA DO TÍTULO
                     card.innerHTML = `
                         <div class="route-card-top">
-                            <h4>Pac: ${patient.nome} ${patient.itemEspecifico ? '<span title="Item Específico">⚠️</span>' : ''}</h4>
+                            <div class="route-card-title-group">
+                                <input type="checkbox" class="route-checkbox" value="${route.id}" onchange="toggleBatchDeleteBtn()">
+                                <h4>Pac: ${patient.nome} ${patient.itemEspecifico ? '<span title="Item Específico">⚠️</span>' : ''}</h4>
+                            </div>
                             <div class="route-card-actions">
                                 <button class="btn-action btn-edit" onclick="editRoute(${route.id}, '${selectedDateString}')" title="Editar Rota">✏️ Editar</button>
                                 <button class="btn-action btn-delete" onclick="deleteRoute(${route.id}, '${selectedDateString}')" title="Remover da Rota">X</button>
@@ -594,17 +631,14 @@
             const route = routesData[dateString].find(r => r.id === routeId);
 
             if (route.separado) {
-                // Estágio 3 -> Desfazer tudo (Voltar para o começo)
                 if(confirm("Deseja desfazer a separação? O status voltará para inicial.")) {
                     updateSeparationStatus(routeId, dateString, false, false);
                 }
             } else if (route.pendenteControlado) {
-                // Estágio 2 -> Farmacêutico terminou de separar o controlado (Finalizar)
                 if(confirm("Confirmar que os medicamentos controlados foram separados e a caixa está pronta?")) {
                     updateSeparationStatus(routeId, dateString, true, false); 
                 }
             } else {
-                // Estágio 1 -> Auxiliar clicou em separar. Abrir Modal de pergunta.
                 currentRouteIdForSeparation = routeId;
                 currentDateForSeparation = dateString;
                 document.getElementById('modalControlado').style.display = 'flex';
@@ -614,17 +648,14 @@
         function confirmarControlado(faltaControlado) {
             closeModal('modalControlado');
             if (faltaControlado) {
-                // Vai para Pendente Controlado (Falta Farmácia)
                 updateSeparationStatus(currentRouteIdForSeparation, currentDateForSeparation, false, true);
             } else {
-                // Vai direto para Separado Finalizado
                 updateSeparationStatus(currentRouteIdForSeparation, currentDateForSeparation, true, false);
             }
         }
 
         async function updateSeparationStatus(routeId, dateString, isSeparado, isPendenteControlado) {
             try {
-                // Atualiza a tela primeiro
                 const routeIndex = routesData[dateString].findIndex(r => r.id === routeId);
                 if (routeIndex > -1) {
                     routesData[dateString][routeIndex].separado = isSeparado;
@@ -632,7 +663,6 @@
                     showRoutes(); 
                 }
 
-                // Salva no banco
                 const { error } = await client.from('rotas').update({ 
                     separado: isSeparado, 
                     pendente_controlado: isPendenteControlado 
