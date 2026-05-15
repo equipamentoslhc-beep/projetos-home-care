@@ -43,7 +43,7 @@
         .btn-success:hover { background-color: #218838; }
         .btn-danger { background-color: var(--alert-color); }
         .btn-danger:hover { background-color: #c82333; }
-        .btn-warning { background-color: var(--warning-color); }
+        .btn-warning { background-color: var(--warning-color); color: white;}
         .btn-warning:hover { background-color: #e68a00; }
         .btn-secondary { background-color: #6c757d; }
         .btn-secondary:hover { background-color: #5a6268; }
@@ -109,7 +109,7 @@
         .modal-content h3 { margin-top: 0; }
         .form-group { margin-bottom: 15px; position: relative; }
         .form-group label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 0.9rem;}
-        .form-group input[type="text"], .form-group input[type="time"], .form-group select { width: 100%; padding: 8px; border: 1px solid var(--border-color); border-radius: 4px; box-sizing: border-box; }
+        .form-group input[type="text"], .form-group input[type="time"], .form-group input[type="date"], .form-group select { width: 100%; padding: 8px; border: 1px solid var(--border-color); border-radius: 4px; box-sizing: border-box; }
         .form-group.checkbox-group { display: flex; align-items: center; gap: 10px; margin-bottom: 10px;}
         .form-group.checkbox-group input { width: auto; margin: 0; }
         
@@ -171,8 +171,9 @@
                 <h3 id="selectedDateText">Selecione uma data</h3>
                 <div class="route-header-actions">
                     <button class="btn btn-secondary btn-sm" id="btnSelectAll" style="display: none;" onclick="toggleSelectAll()">☑️ Selecionar Todos</button>
+                    <button class="btn btn-warning btn-sm" id="btnChangeDateSelected" style="display: none;" onclick="openChangeDateModal()">📅 Mudar Data</button>
+                    <button class="btn btn-danger btn-sm" id="btnDeleteSelected" style="display: none;" onclick="deleteSelectedRoutes()">🗑️ Excluir</button>
                     
-                    <button class="btn btn-danger btn-sm" id="btnDeleteSelected" style="display: none;" onclick="deleteSelectedRoutes()">🗑️ Excluir Selecionados</button>
                     <button class="btn btn-secondary btn-sm" id="btnToggleView" style="display: none;" onclick="toggleViewMode()">Ver Detalhes</button>
                     <button class="btn" id="btnAddRoute" style="display: none;" onclick="openRouteModal()">+ Rota</button>
                 </div>
@@ -332,6 +333,20 @@
         </div>
     </div>
 
+    <div id="modalChangeDate" class="modal">
+        <div class="modal-content" style="max-width: 350px;">
+            <h3 style="margin-top: 0; color: var(--primary-color);">Mudar Data de Entrega</h3>
+            <p style="color: #555; font-size: 0.95rem; margin-bottom: 15px;">Selecione a nova data para os pacientes marcados:</p>
+            <div class="form-group">
+                <input type="date" id="newBatchDate">
+            </div>
+            <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">
+                <button class="btn btn-danger" onclick="closeModal('modalChangeDate')">Cancelar</button>
+                <button class="btn btn-success" onclick="saveBatchDateChange()">Confirmar</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         const SUPABASE_URL = 'https://dtnzofvudffecstilywe.supabase.co';
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR0bnpvZnZ1ZGZmZWNzdGlseXdlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg2ODcwNjYsImV4cCI6MjA5NDI2MzA2Nn0.272K6s3cXdf5VY2LZ2HtcLDYg017H79gy9TQ3bQZkss';
@@ -365,7 +380,9 @@
         const routeContent = document.getElementById('routeContent');
         const btnAddRoute = document.getElementById('btnAddRoute');
         const btnToggleView = document.getElementById('btnToggleView');
+        
         const btnDeleteSelected = document.getElementById('btnDeleteSelected');
+        const btnChangeDateSelected = document.getElementById('btnChangeDateSelected');
         const btnSelectAll = document.getElementById('btnSelectAll');
 
         async function initData() {
@@ -480,35 +497,33 @@
             showRoutes();
         }
 
-        // --- LÓGICA DE SELEÇÃO EM LOTE ---
+        // --- LÓGICA DE AÇÕES EM LOTE ---
 
         function toggleSelectAll() {
             const checkboxes = document.querySelectorAll('.route-checkbox');
             if (checkboxes.length === 0) return;
 
-            // Verifica se TODAS estão marcadas
             const allChecked = Array.from(checkboxes).every(cb => cb.checked);
             
-            // Se todas estiverem marcadas, desmarca. Senão, marca todas.
             checkboxes.forEach(cb => {
                 cb.checked = !allChecked;
             });
             
-            toggleBatchDeleteBtn();
+            toggleBatchActionsBtn();
         }
 
-        function toggleBatchDeleteBtn() {
+        function toggleBatchActionsBtn() {
             const checkboxes = document.querySelectorAll('.route-checkbox');
             const checkedBoxes = document.querySelectorAll('.route-checkbox:checked');
             
-            // Controla a exibição do botão Excluir Selecionados
             if (checkedBoxes.length > 0) {
                 btnDeleteSelected.style.display = 'inline-block';
+                btnChangeDateSelected.style.display = 'inline-block';
             } else {
                 btnDeleteSelected.style.display = 'none';
+                btnChangeDateSelected.style.display = 'none';
             }
 
-            // Atualiza o texto do botão Selecionar Todos
             if (checkboxes.length > 0 && checkedBoxes.length === checkboxes.length) {
                 btnSelectAll.textContent = '☐ Desmarcar Todos';
             } else {
@@ -537,6 +552,39 @@
             }
         }
 
+        // Mudar data em lote
+        function openChangeDateModal() {
+            const checkedBoxes = document.querySelectorAll('.route-checkbox:checked');
+            if (checkedBoxes.length === 0) return;
+            
+            document.getElementById('newBatchDate').value = selectedDateString;
+            document.getElementById('modalChangeDate').style.display = 'flex';
+        }
+
+        async function saveBatchDateChange() {
+            const newDate = document.getElementById('newBatchDate').value;
+            if (!newDate) { alert("Selecione uma nova data!"); return; }
+
+            const checkedBoxes = document.querySelectorAll('.route-checkbox:checked');
+            if (checkedBoxes.length === 0) return;
+
+            const idsToUpdate = Array.from(checkedBoxes).map(cb => parseInt(cb.value));
+
+            try {
+                const { error } = await client.from('rotas')
+                    .update({ data_rota: newDate })
+                    .in('id', idsToUpdate);
+
+                if (error) throw error;
+
+                alert(`${checkedBoxes.length} paciente(s) movido(s) para o dia ${newDate.split('-').reverse().join('/')}!`);
+                closeModal('modalChangeDate');
+                initData(); 
+            } catch (error) {
+                alert("Erro ao mudar a data em lote: " + error.message);
+            }
+        }
+
         function showRoutes() {
             selectedDateText.textContent = `Rota para ${selectedDayInfo}`;
             
@@ -544,8 +592,9 @@
             btnToggleView.style.display = 'block';
             btnToggleView.textContent = isSimplifiedMode ? 'Ver Detalhes' : 'Simplificar';
             
-            // Reset dos botões de lote ao carregar a lista
+            // Reset dos botões de lote
             btnDeleteSelected.style.display = 'none'; 
+            btnChangeDateSelected.style.display = 'none';
             btnSelectAll.textContent = '☑️ Selecionar Todos';
 
             routeContent.innerHTML = '';
@@ -553,7 +602,7 @@
             const dailyRoutes = routesData[selectedDateString] || [];
 
             if (dailyRoutes.length > 0) {
-                btnSelectAll.style.display = 'inline-block'; // Mostra botão de selecionar todos
+                btnSelectAll.style.display = 'inline-block'; 
                 dailyRoutes.sort((a, b) => a.horario.localeCompare(b.horario));
 
                 dailyRoutes.forEach(route => {
@@ -629,7 +678,7 @@
                     card.innerHTML = `
                         <div class="route-card-top">
                             <div class="route-card-title-group">
-                                <input type="checkbox" class="route-checkbox" value="${route.id}" onchange="toggleBatchDeleteBtn()">
+                                <input type="checkbox" class="route-checkbox" value="${route.id}" onchange="toggleBatchActionsBtn()">
                                 <h4>Pac: ${patient.nome} ${patient.itemEspecifico ? '<span title="Item Específico">⚠️</span>' : ''}</h4>
                             </div>
                             <div class="route-card-actions">
@@ -650,7 +699,7 @@
                     routeContent.appendChild(card);
                 });
             } else {
-                btnSelectAll.style.display = 'none'; // Esconde botão se não tem pacientes
+                btnSelectAll.style.display = 'none'; 
                 routeContent.innerHTML = '<p class="no-routes">Nenhum paciente agendado para este dia.</p>';
             }
         }
@@ -1040,7 +1089,7 @@
 
         function closeModal(modalId) {
             document.getElementById(modalId).style.display = 'none';
-            if (modalId === 'modalPatient' || modalId === 'modalRoute') {
+            if (modalId === 'modalPatient' || modalId === 'modalRoute' || modalId === 'modalChangeDate') {
                 const inputs = document.querySelectorAll(`#${modalId} input:not([type="radio"]), #${modalId} select`);
                 inputs.forEach(input => {
                     if(input.type === 'checkbox') input.checked = false;
