@@ -75,9 +75,11 @@
         
         .route-card-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 2px; }
         .route-card-title-group { display: flex; align-items: center; gap: 8px; flex-grow: 1; word-break: break-word;}
-        .route-card-top h4 { margin: 0; color: inherit; font-size: 0.95rem; }
+        .route-card-top h4 { margin: 0; color: inherit; font-size: 0.95rem; display: flex; align-items: center; flex-wrap: wrap; gap: 6px;}
         .patient-card.item-especifico h4 { color: var(--alert-color); }
         
+        .badge-req { background-color: #e9ecef; color: #495057; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; border: 1px solid #ced4da; font-weight: bold; }
+
         .route-card-actions { display: flex; gap: 8px; flex-shrink: 0; align-items: center; }
         .btn-action { background: none; border: none; cursor: pointer; font-weight: bold; padding: 0; display: flex; align-items: center; gap: 2px; font-size: 0.85rem; }
         .btn-edit { color: var(--primary-color); }
@@ -145,7 +147,7 @@
     <div class="header-container">
         <div class="logos-container">
             <img src="logo sao luis horizontal.jpg" alt="Logo São Luís Home Care">
-            <h1>Painel - Gestão de Rotas SLHC</h1>
+            <h1>Painel Operacional - Gestão de Rotas</h1>
             <img src="Logo ONA 3 cerificado horizontal.jpeg" alt="Selo ONA 3">
         </div>
         <div class="header-main">
@@ -248,8 +250,8 @@
                 <label>Grupo da Rota</label>
                 <select id="patGrupo">
                     <option value="">Sem Grupo Definido</option>
-                    <option value="1 e 16">1 e 16</option>
-                    <option value="2 e 17">2 e 17</option>
+                    <option value="1 e 15">1 e 15</option>
+                    <option value="2 e 16">2 e 16</option>
                     <option value="3 e 18">3 e 18</option>
                     <option value="4 e 19">4 e 19</option>
                     <option value="5 e 20">5 e 20</option>
@@ -312,6 +314,12 @@
                 <label>Horário (Padrão)</label>
                 <input type="time" id="routeTime">
             </div>
+            
+            <div class="form-group">
+                <label>Nº Requisição (REQ) <span style="font-weight: normal; color: #777; font-size: 0.8rem;">- Opcional</span></label>
+                <input type="text" id="routeRequisicao" placeholder="Ex: 123456">
+            </div>
+
             <div class="form-group">
                 <label>Observações</label>
                 <input type="text" id="routeObs" placeholder="Ex: Deixar na portaria">
@@ -392,7 +400,6 @@
 
         let isSimplifiedMode = true; 
         
-        // --- VARIÁVEL DE CONTROLE DE ACESSO GESTOR ---
         let isAdmin = false; 
 
         const monthYearText = document.getElementById('monthYear');
@@ -407,14 +414,11 @@
         const btnSelectAll = document.getElementById('btnSelectAll');
         const btnToggleAdmin = document.getElementById('btnToggleAdmin');
 
-        // LÓGICA DE LOGIN GESTOR
         function toggleAdminMode() {
             if (isAdmin) {
-                // Se já é admin, sai do modo admin
                 isAdmin = false;
                 updateAdminUI();
             } else {
-                // Se não é admin, abre a tela de senha
                 document.getElementById('adminPasswordInput').value = '';
                 document.getElementById('modalLogin').style.display = 'flex';
             }
@@ -422,10 +426,7 @@
 
         function verifyAdminPassword() {
             const pwd = document.getElementById('adminPasswordInput').value;
-            // ==========================================
-            // TROQUE SUA SENHA AQUI:
-            // ==========================================
-            if (pwd === "Slhc@2026") {
+            if (pwd === "123456") {
                 isAdmin = true;
                 closeModal('modalLogin');
                 updateAdminUI();
@@ -435,18 +436,15 @@
         }
 
         function updateAdminUI() {
-            // Mostra ou esconde elementos que têm a classe 'admin-only'
             const adminElements = document.querySelectorAll('.admin-only');
             adminElements.forEach(el => {
                 if (el.tagName === 'BUTTON') {
-                    // Para os botões do painel de cima
                     if (el.id === 'btnManagePatients' || el.id === 'btnAddPatient') {
                         el.style.display = isAdmin ? 'inline-block' : 'none';
                     }
                 }
             });
 
-            // Muda a cor e o texto do botão de cadeado
             if (isAdmin) {
                 btnToggleAdmin.innerHTML = '🔓 Sair do Modo Gestor';
                 btnToggleAdmin.classList.replace('btn-secondary', 'btn-danger');
@@ -455,7 +453,6 @@
                 btnToggleAdmin.classList.replace('btn-danger', 'btn-secondary');
             }
 
-            // Recarrega as rotas na tela para mostrar ou esconder as caixas de seleção e botões Editar/Excluir
             showRoutes();
         }
 
@@ -484,6 +481,7 @@
                         id: r.id, 
                         patientId: r.paciente_id,
                         horario: r.horario.substring(0, 5), 
+                        requisicao: r.requisicao || '', // NOVO CAMPO CARREGADO AQUI
                         observacoes: r.observacoes,
                         enviarEsterelizaveis: r.enviar_esterelizaveis,
                         enviarEquiposBic: r.enviar_equipos_bic,
@@ -498,13 +496,13 @@
 
                 document.getElementById('loadingOverlay').style.display = 'none';
                 
-                updateAdminUI(); // Roda a checagem visual logo no início
+                updateAdminUI(); 
                 renderCalendar();
                 if(selectedDateString) showRoutes();
 
             } catch (error) {
                 console.error("Erro ao buscar dados:", error);
-                alert("Erro ao conectar com Supabase.");
+                alert("Erro ao conectar com Supabase. Confirme se a nova coluna 'requisicao' foi criada no banco.");
                 document.getElementById('loadingOverlay').innerHTML = "Falha ao conectar com Supabase.";
             }
         }
@@ -575,7 +573,7 @@
         // --- LÓGICA DE AÇÕES EM LOTE ---
 
         function toggleSelectAll() {
-            if(!isAdmin) return; // Segurança extra
+            if(!isAdmin) return; 
 
             const checkboxes = document.querySelectorAll('.route-checkbox');
             if (checkboxes.length === 0) return;
@@ -673,14 +671,12 @@
             btnToggleView.style.display = 'block';
             btnToggleView.textContent = isSimplifiedMode ? 'Ver Detalhes' : 'Simplificar';
             
-            // Controle dos botões superiores dependendo se é admin
             if (isAdmin) {
                 btnAddRoute.style.display = 'block';
             } else {
                 btnAddRoute.style.display = 'none';
             }
 
-            // Reset dos botões de lote (Sempre esconde ao recarregar, só mostra se tiver itens e for admin)
             btnDeleteSelected.style.display = 'none'; 
             btnChangeDateSelected.style.display = 'none';
             btnSelectAll.style.display = 'none';
@@ -774,11 +770,16 @@
                         </div>
                     ` : '';
 
+                    // LÓGICA DO BADGE REQ (Aparece se estiver preenchido)
+                    let badgeReqHtml = route.requisicao && route.requisicao.trim() !== '' 
+                        ? `<span class="badge-req">REQ.: ${route.requisicao}</span>` 
+                        : '';
+
                     card.innerHTML = `
                         <div class="route-card-top">
                             <div class="route-card-title-group">
                                 ${adminCheckHtml}
-                                <h4>Pac: ${patient.nome} ${patient.itemEspecifico ? '<span title="Item Específico">⚠️</span>' : ''}</h4>
+                                <h4>Pac: ${patient.nome} ${patient.itemEspecifico ? '<span title="Item Específico">⚠️</span>' : ''} ${badgeReqHtml}</h4>
                             </div>
                             ${adminActionsHtml}
                         </div>
@@ -1031,6 +1032,7 @@
             searchInput.disabled = true; 
             
             document.getElementById('routeTime').value = route.horario;
+            document.getElementById('routeRequisicao').value = route.requisicao || ''; // Preenche o campo REQ.
             document.getElementById('routeObs').value = route.observacoes || '';
             document.getElementById('routeEsterelizaveis').checked = route.enviarEsterelizaveis;
             document.getElementById('routeEquiposBic').checked = route.enviarEquiposBic;
@@ -1043,6 +1045,7 @@
             if(!isAdmin) return;
             const isGroup = document.querySelector('input[name="routeType"]:checked').value === 'grupo';
             const horario = document.getElementById('routeTime').value;
+            const requisicao = document.getElementById('routeRequisicao').value; // Coleta o valor do REQ.
             const observacoes = document.getElementById('routeObs').value;
             const enviar_esterelizaveis = document.getElementById('routeEsterelizaveis').checked;
             const enviar_equipos_bic = document.getElementById('routeEquiposBic').checked;
@@ -1052,7 +1055,7 @@
 
             try {
                 if (editingRouteId) {
-                    const payload = { horario, observacoes, enviar_esterelizaveis, enviar_equipos_bic, enviar_frasco_cruz };
+                    const payload = { horario, requisicao, observacoes, enviar_esterelizaveis, enviar_equipos_bic, enviar_frasco_cruz };
                     const { error } = await client.from('rotas').update(payload).eq('id', editingRouteId);
                     if (error) throw error;
                     
@@ -1067,6 +1070,7 @@
                         paciente_id: p.id,
                         data_rota: selectedDateString,
                         horario: horario, 
+                        requisicao: requisicao, // Salva o valor do REQ.
                         observacoes: observacoes,
                         enviar_esterelizaveis: enviar_esterelizaveis,
                         enviar_equipos_bic: enviar_equipos_bic,
@@ -1087,6 +1091,7 @@
                         paciente_id: parseInt(paciente_id),
                         data_rota: selectedDateString,
                         horario: horario,
+                        requisicao: requisicao, // Salva o valor do REQ.
                         observacoes: observacoes,
                         enviar_esterelizaveis: enviar_esterelizaveis,
                         enviar_equipos_bic: enviar_equipos_bic,
